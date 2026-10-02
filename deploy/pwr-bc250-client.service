@@ -1,0 +1,16 @@
+[Unit]
+Description=PWR BC250 power management client API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/pwr-bc250-client
+ExecStart=/opt/pwr-bc250-client/.venv/bin/python -m app.main
+Restart=always
+RestartSec=3
+# poweroff/reboot require root privileges
+User=root
+
+[Install]
+WantedBy=multi-user.target
