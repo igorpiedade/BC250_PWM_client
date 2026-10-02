@@ -68,14 +68,49 @@ PWR_DRY_RUN=1 python -m app.main
 service as root (see deploy/pwr-bc250-client.service) or grant passwordless
 sudo for those two commands.
 
-## Test
+## API request examples
+
+Discover the machine:
 
 ```bash
 curl http://<machine-ip>:8765/autodiscover
+```
+
+Response:
+
+```json
+{ "status": "ok", "ip": "192.168.1.50" }
+```
+
+Power off the machine:
+
+```bash
 curl -X POST http://<machine-ip>:8765/powermgt \
      -H "Content-Type: application/json" \
      -d '{"action": "poweroff"}'
 ```
+
+Restart the machine:
+
+```bash
+curl -X POST http://<machine-ip>:8765/powermgt \
+     -H "Content-Type: application/json" \
+     -d '{"action": "restart"}'
+```
+
+Response to either:
+
+```json
+{ "status": "ok", "action": "poweroff" }
+```
+
+Notes:
+
+- The payload must contain exactly `"action": "poweroff"` or
+  `"action": "restart"` -- anything else returns `422 Unprocessable Entity`.
+- The machine powers off / reboots about 1 second after the `200 OK`
+  response is sent.
+- Requests from outside the local subnet are rejected with `403 Forbidden`.
 
 ## Deploy (systemd)
 
