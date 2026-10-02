@@ -93,6 +93,20 @@ The script:
 3. Opens port 8765/tcp in the firewall (firewalld, ufw, or raw iptables,
    whichever is active).
 
+## Update
+
+On the target machine, pull the latest version from GitHub and restart the
+service with:
+
+```bash
+sudo ./deploy/update.sh          # latest default branch
+sudo ./deploy/update.sh v1.2.3   # or a specific tag/branch/commit
+```
+
+The script downloads the repo tarball, replaces /opt/pwr-bc250-client/app,
+reinstalls dependencies into the existing venv, refreshes the systemd unit,
+and restarts the service.
+
 Manual alternative:
 
 ```bash
