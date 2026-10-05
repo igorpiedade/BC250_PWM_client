@@ -22,6 +22,7 @@ if [[ "${EUID}" -ne 0 ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 if ! command -v python3 >/dev/null 2>&1; then
     echo "python3 not found. Please install python3 first." >&2
@@ -40,7 +41,7 @@ fi
 # --------------------------------------------------------------------------
 log "[1/5] Installing application files to ${INSTALL_DIR} ..."
 mkdir -p "${INSTALL_DIR}"
-cp -r "${SCRIPT_DIR}/app" "${SCRIPT_DIR}/requirements.txt" "${INSTALL_DIR}/"
+cp -r "${PROJECT_ROOT}/app" "${PROJECT_ROOT}/requirements.txt" "${INSTALL_DIR}/"
 
 # --------------------------------------------------------------------------
 # 2. Virtual environment + dependencies
@@ -54,7 +55,7 @@ python3 -m venv "${INSTALL_DIR}/.venv"
 # 3. systemd service
 # --------------------------------------------------------------------------
 log "[3/5] Installing systemd service '${APP_NAME}' ..."
-cp "${SCRIPT_DIR}/deploy/${APP_NAME}.service" "/etc/systemd/system/${APP_NAME}.service"
+cp "${SCRIPT_DIR}/${APP_NAME}.service" "/etc/systemd/system/${APP_NAME}.service"
 systemctl daemon-reload
 systemctl enable "${APP_NAME}"
 systemctl restart "${APP_NAME}"
