@@ -1,7 +1,9 @@
 # PWR BC250 Client
 
 Small FastAPI service that lets apps on the same LAN discover this machine
-and trigger power actions on it.
+and trigger power actions on it. On startup it also registers its local IP
+address with the power controller (see "Power controller registration"
+below).
 
 ## Routes
 
@@ -112,6 +114,30 @@ Notes:
   response is sent.
 - Requests from outside the local subnet are rejected with `403 Forbidden`.
 
+## Power controller registration
+
+Every time the service starts, it announces the machine's local IP address
+to the power controller so the controller always knows where to reach it:
+
+```
+POST http://<controller-ip>/setosaddress?ip=<local-ip>
+Authorization: Bearer <api-key>
+```
+
+The controller IP and API key are read from config.cfg, which is created
+by the installer (see below) and can be edited by hand:
+
+```ini
+[power-controller]
+ip = 192.168.1.10
+api-key = your-api-key
+```
+
+In development the service looks for config.cfg in the project root; the
+path can be overridden with the PWR_CONFIG_FILE environment variable.
+If config.cfg is missing or incomplete the service still answers API
+requests -- it just skips the registration (a warning is logged).
+
 ## Deploy (systemd)
 
 Copy the project to the target Linux machine, then run the installer as root:
@@ -123,10 +149,20 @@ sudo ./deploy/install.sh
 The script:
 
 1. Installs the app to /opt/pwr-bc250-client and creates a venv there.
-2. Installs and enables the pwr-bc250-client systemd service (runs as root,
+2. Asks for the power controller IP address and API key and saves them to
+   /opt/pwr-bc250-client/config.cfg.
+3. Installs and enables the pwr-bc250-client systemd service (runs as root,
    which poweroff/reboot require).
-3. Opens port 8765/tcp in the firewall (firewalld, ufw, or raw iptables,
+4. Opens port 8765/tcp in the firewall (firewalld, ufw, or raw iptables,
    whichever is active).
+
+The power controller IP or API key can be changed later by editing
+/opt/pwr-bc250-client/config.cfg and restarting the service:
+
+```bash
+sudo nano /opt/pwr-bc250-client/config.cfg
+sudo systemctl restart pwr-bc250-client
+```
 
 ## Update
 
@@ -140,7 +176,11 @@ sudo ./deploy/update.sh v1.2.3   # or a specific tag/branch/commit
 
 The script downloads the repo tarball, replaces /opt/pwr-bc250-client/app,
 reinstalls dependencies into the existing venv, refreshes the systemd unit,
-and restarts the service.
+and restarts the service. It also checks that
+/opt/pwr-bc250-client/config.cfg exists and contains both the controller IP
+and the API key; if it is missing or incomplete (e.g. the service was
+installed before config.cfg was introduced), the script asks for the missing
+values and creates/updates it. A complete config.cfg is left untouched.
 
 Manual alternative:
 

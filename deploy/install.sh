@@ -36,34 +36,43 @@ if ! python3 -m venv --help >/dev/null 2>&1; then
     exit 1
 fi
 
+# shellcheck source=config_lib.sh
+source "${SCRIPT_DIR}/config_lib.sh"
+
 # --------------------------------------------------------------------------
 # 1. Copy application files
 # --------------------------------------------------------------------------
-log "[1/5] Installing application files to ${INSTALL_DIR} ..."
+log "[1/6] Installing application files to ${INSTALL_DIR} ..."
 mkdir -p "${INSTALL_DIR}"
 cp -r "${PROJECT_ROOT}/app" "${PROJECT_ROOT}/requirements.txt" "${INSTALL_DIR}/"
 
 # --------------------------------------------------------------------------
-# 2. Virtual environment + dependencies
+# 2. Power controller configuration (config.cfg)
 # --------------------------------------------------------------------------
-log "[2/5] Creating virtual environment and installing dependencies ..."
+log "[2/6] Configuring the power controller ..."
+ensure_power_controller_config
+
+# --------------------------------------------------------------------------
+# 3. Virtual environment + dependencies
+# --------------------------------------------------------------------------
+log "[3/6] Creating virtual environment and installing dependencies ..."
 python3 -m venv "${INSTALL_DIR}/.venv"
 "${INSTALL_DIR}/.venv/bin/pip" install --quiet --upgrade pip
 "${INSTALL_DIR}/.venv/bin/pip" install --quiet -r "${INSTALL_DIR}/requirements.txt"
 
 # --------------------------------------------------------------------------
-# 3. systemd service
+# 4. systemd service
 # --------------------------------------------------------------------------
-log "[3/5] Installing systemd service '${APP_NAME}' ..."
+log "[4/6] Installing systemd service '${APP_NAME}' ..."
 cp "${SCRIPT_DIR}/${APP_NAME}.service" "/etc/systemd/system/${APP_NAME}.service"
 systemctl daemon-reload
 systemctl enable "${APP_NAME}"
 systemctl restart "${APP_NAME}"
 
 # --------------------------------------------------------------------------
-# 4. Firewall: open port 8765/tcp
+# 5. Firewall: open port 8765/tcp
 # --------------------------------------------------------------------------
-log "[4/5] Opening port ${PORT}/tcp in the firewall ..."
+log "[5/6] Opening port ${PORT}/tcp in the firewall ..."
 if command -v firewall-cmd >/dev/null 2>&1 && systemctl is-active --quiet firewalld; then
     # Fedora / RHEL / openSUSE (firewalld)
     firewall-cmd --permanent --add-port="${PORT}/tcp"
@@ -93,11 +102,14 @@ else
 fi
 
 # --------------------------------------------------------------------------
-# 5. Done
+# 6. Done
 # --------------------------------------------------------------------------
-log "[5/5] Installation complete."
+log "[6/6] Installation complete."
 systemctl --no-pager --full status "${APP_NAME}" || true
 echo
 echo "The API is listening on 0.0.0.0:${PORT}"
 echo "  curl http://<machine-ip>:${PORT}/autodiscover"
 echo "  journalctl -u ${APP_NAME} -f   # follow logs"
+echo
+echo "Power controller IP: $(read_config_value "${INSTALL_DIR}/config.cfg" "ip")"
+echo "  Edit ${INSTALL_DIR}/config.cfg to change it, then: sudo systemctl restart ${APP_NAME}"

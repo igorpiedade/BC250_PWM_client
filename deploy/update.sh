@@ -33,9 +33,25 @@ if ! command -v curl >/dev/null 2>&1; then
 fi
 
 # --------------------------------------------------------------------------
-# 1. Resolve the GitHub repo from the origin remote (fallback: known repo)
+# 1. Power controller configuration (config.cfg)
 # --------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# shellcheck source=config_lib.sh
+if [[ -f "${SCRIPT_DIR}/config_lib.sh" ]]; then
+    source "${SCRIPT_DIR}/config_lib.sh"
+    log "Checking power controller configuration ..."
+    ensure_power_controller_config
+else
+    # config_lib.sh was added after the initial release; when updating an
+    # old installation this local copy may not exist yet. Skip the check --
+    # it will run on the next update once the new deploy scripts are in place.
+    log "config_lib.sh not found - skipping config.cfg check (will run on next update)."
+fi
+
+# --------------------------------------------------------------------------
+# 2. Resolve the GitHub repo from the origin remote (fallback: known repo)
+# --------------------------------------------------------------------------
 REPO_SLUG=""
 
 if command -v git >/dev/null 2>&1 && git -C "${SCRIPT_DIR}/.." rev-parse >/dev/null 2>&1; then
@@ -54,7 +70,7 @@ fi
 log "Updating ${APP_NAME} from github.com/${REPO_SLUG} (ref: ${REF})"
 
 # --------------------------------------------------------------------------
-# 2. Download the tarball and extract it
+# 3. Download the tarball and extract it
 # --------------------------------------------------------------------------
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "${TMP_DIR}"' EXIT
@@ -66,7 +82,7 @@ tar -xzf "${TMP_DIR}/app.tar.gz" -C "${TMP_DIR}"
 SRC_DIR="$(find "${TMP_DIR}" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
 
 # --------------------------------------------------------------------------
-# 3. Update files, dependencies, service, then restart
+# 4. Update files, dependencies, service, then restart
 # --------------------------------------------------------------------------
 log "Updating files in ${INSTALL_DIR} ..."
 mkdir -p "${INSTALL_DIR}"

@@ -3,17 +3,25 @@
 Exposes:
   GET  /autodiscover - announce the local machine IP (same-subnet only)
   POST /powermgt     - power off or restart the machine (same-subnet only)
+
+On startup the service also registers the local machine IP with the power
+controller configured in config.cfg.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Literal
 
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from pydantic import BaseModel
 
+from app.config import load_controller_config
+from app.controller import report_ip_to_controller
 from app.network import get_primary_ipv4, is_same_subnet
 from app.power import execute_action
 
@@ -23,7 +31,27 @@ logging.basicConfig(
 )
 logger = logging.getLogger("pwr-client")
 
-app = FastAPI(title="PWR BC250 Client", version="1.0.0")
+# Keep strong references to fire-and-forget tasks so they are not GC'd.
+_background_tasks: set[asyncio.Task[bool]] = set()
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """Announce this machine's IP to the power controller on startup.
+
+    Runs in the background: the API must come up even when the controller
+    (or the config) is not available yet.
+    """
+    config = load_controller_config()
+    if config is not None:
+        local_ip = get_primary_ipv4()
+        task = asyncio.create_task(report_ip_to_controller(config, local_ip))
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
+    yield
+
+
+app = FastAPI(title="PWR BC250 Client", version="1.0.0", lifespan=lifespan)
 
 
 def require_same_subnet(request: Request) -> None:
