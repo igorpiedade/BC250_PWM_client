@@ -116,10 +116,14 @@ Notes:
 
 ## Power controller registration
 
-Every time the service starts, it announces the machine's local IP address
-to the power controller so the controller always knows where to reach it:
+Every time the service starts, it first tells the controller to set the LED
+to its normal state, then announces the machine's local IP address so the
+controller always knows where to reach it:
 
 ```
+POST http://<controller-ip>/setLED?activate=normal
+Authorization: Bearer <api-key>
+
 POST http://<controller-ip>/setosaddress?ip=<local-ip>
 Authorization: Bearer <api-key>
 ```
